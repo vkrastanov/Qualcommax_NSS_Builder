@@ -168,7 +168,8 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       DEVICE: ${{ matrix.device }}
-      CONFIG_FRAGMENT: ${{ matrix.config_fragment }}
+      # CONFIG_FRAGMENT: ${{ matrix.config_fragment }}
+      CONFIG_FRAGMENT: ""
       TAG: ${{ matrix.flavour == 'mesh' && needs.release.outputs.mesh_tag || needs.release.outputs.tag }}
     steps:
       - name: Install build dependencies
