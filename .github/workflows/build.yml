@@ -53,21 +53,21 @@ jobs:
       - id: check
         run: bash scripts/check-updates.sh
 
-  stats:
-    name: Download stats
-    needs: check
-    runs-on: ubuntu-26.04
-    timeout-minutes: 5
-    permissions:
-      contents: write
-    env:
-      GH_TOKEN: ${{ github.token }}
-      REPO: ${{ github.repository }}
-    steps:
-      - uses: actions/checkout@v7
-      # Refreshes the README badge every run; the prune job also folds in
-      # deleted releases before removing them.
-      - run: bash scripts/download-stats.sh
+#  stats:
+#    name: Download stats
+#    needs: check
+#    runs-on: ubuntu-26.04
+#    timeout-minutes: 5
+#    permissions:
+#      contents: write
+#    env:
+#      GH_TOKEN: ${{ github.token }}
+#      REPO: ${{ github.repository }}
+#    steps:
+#      - uses: actions/checkout@v7
+#      # Refreshes the README badge every run; the prune job also folds in
+#      # deleted releases before removing them.
+#      - run: bash scripts/download-stats.sh
 
   release:
     name: Create draft release
@@ -162,9 +162,9 @@ jobs:
         # same source trees; mesh needs the 11.4 firmware, which is image-wide
         # too, so it cannot share a build with the default flavour either.
         flavour: [default]
-        include:
-          - flavour: mesh
-            config_fragment: devices/common/config.mesh
+#        include:
+#          - flavour: mesh
+#            config_fragment: devices/common/config.mesh
     env:
       GH_TOKEN: ${{ github.token }}
       DEVICE: ${{ matrix.device }}
