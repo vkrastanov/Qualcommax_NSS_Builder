@@ -132,3 +132,7 @@ CONFIG_NSS_FIRMWARE_VERSION_12_5=y
 ## reboots in the board's ramoops region; the image archives them to
 ## /root/pstore on the next boot.
 CONFIG_PACKAGE_kmod-ramoops=y
+
+## WireGuard, for the same reason.
+CONFIG_PACKAGE_kmod-wireguard=y
+
