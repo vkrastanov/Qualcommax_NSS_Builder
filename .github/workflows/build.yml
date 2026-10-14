@@ -1,11 +1,9 @@
 name: Build
 
-# Builds the ppe-nss images for every ipq807x and ipq60xx device, in six
+# Builds the edma-nss images for every ipq807x and ipq60xx device, in six
 # groups and two flavours (default, and mesh on the 11.4 firmware line):
 #   check (upstream moved?) -> draft release -> build each group -> publish -> prune
 # All build parameters live in the `env:` block below and in devices/<group>/config.
-# The vendor NSS stack (edma-nss releases) was last built from the
-# archive/edma-nss-final tag of this repo.
 on:
   workflow_dispatch:
   push:
@@ -17,7 +15,7 @@ on:
       - 'scripts/**'
       - '.github/workflows/build.yml'
   schedule:
-    - cron: "0 */2 * * *"
+    - cron: "34 6 * * 6"
 
 concurrency:
   group: build-${{ github.ref }}
@@ -27,19 +25,15 @@ permissions:
   contents: read
 
 env:
-  UPSTREAM_REPO: JuliusBairaktaris/openwrt-ppe-nss
-  UPSTREAM_REF: ppe-nss
+  UPSTREAM_REPO: JuliusBairaktaris/openwrt-nss-edma
+  UPSTREAM_REF: nss-edma-rework
   NSS_REPO: JuliusBairaktaris/nss-packages
   NSS_REF: edma-nss
-  VARIANT: ppe-nss
-  RELEASE_PREFIX: ppe-nss
-  MESH_RELEASE_PREFIX: ppe-nss-mesh
+  VARIANT: edma-nss
+  RELEASE_PREFIX: edma-nss
+  MESH_RELEASE_PREFIX: edma-nss-mesh
   KEEP: "2"                     # newest releases to retain, per prefix
-  # nss-firmware, and the luci fork carrying luci-app-ppe-qos (openwrt/luci
-  # PR 8965), which prepare-build.sh swaps in for the default luci feed.
-  FEEDS: |
-    src-git nss https://github.com/JuliusBairaktaris/nss-packages.git;edma-nss
-    src-git luci https://github.com/JuliusBairaktaris/luci.git;luci-app-ppe-qos
+  FEEDS: "src-git nss https://github.com/JuliusBairaktaris/nss-packages.git;edma-nss"
 
 jobs:
   check:
@@ -59,26 +53,26 @@ jobs:
       - id: check
         run: bash scripts/check-updates.sh
 
-  stats:
-    name: Download stats
-    needs: check
-    runs-on: ubuntu-26.04
-    timeout-minutes: 5
-    permissions:
-      contents: write
-    env:
-      GH_TOKEN: ${{ github.token }}
-      REPO: ${{ github.repository }}
-    steps:
-      - uses: actions/checkout@v7
-      # Refreshes the README badge every run; the prune job also folds in
-      # deleted releases before removing them.
-      - run: bash scripts/download-stats.sh
+#  stats:
+#    name: Download stats
+#    needs: check
+#    runs-on: ubuntu-26.04
+#    timeout-minutes: 5
+#    permissions:
+#      contents: write
+#    env:
+#      GH_TOKEN: ${{ github.token }}
+#      REPO: ${{ github.repository }}
+#    steps:
+#      - uses: actions/checkout@v7
+#      # Refreshes the README badge every run; the prune job also folds in
+#      # deleted releases before removing them.
+#      - run: bash scripts/download-stats.sh
 
   release:
     name: Create draft release
     needs: check
-    if: needs.check.outputs.need == 'true'
+    if: github.event_name == 'workflow_dispatch' || needs.check.outputs.need == 'true'
     runs-on: ubuntu-26.04
     timeout-minutes: 5
     permissions:
@@ -116,10 +110,11 @@ jobs:
               echo "- **Trigger**: \`${GITHUB_EVENT_NAME}\`"
               echo
               if [[ "$prefix" == "$MESH_RELEASE_PREFIX" ]]; then
-                echo "**802.11s mesh build.** Same stack as the \`${VARIANT}\` release of"
-                echo "the same date, on NSS firmware 11.4.0.5 - the last firmware line that"
-                echo "accepts a mesh interface. Take this one only if you run 802.11s; the"
-                echo "\`${VARIANT}\` release carries the newer 12.5 firmware."
+                echo "**802.11s mesh offload build.** Same stack as the \`${VARIANT}\`"
+                echo "release of the same date, on NSS firmware 11.4.0.5 — the last"
+                echo "firmware line that accepts a mesh interface — with the ath11k mesh"
+                echo "path/proxy-path offload compiled in. Take this one only if you run"
+                echo "802.11s; the \`${VARIANT}\` release carries the newer 12.5 firmware."
                 echo
               fi
               echo "Pick the \`...-<your device>-squashfs-sysupgrade.bin\` asset and flash"
@@ -127,9 +122,9 @@ jobs:
               echo "there is no factory image; install stock OpenWrt first if you are not"
               echo "already running it."
               echo
-              echo "Wired offload runs in the PPE through the fw4 flowtable, switchdev"
-              echo "and tc. The NSS Wi-Fi offload is on by default; turn it off with"
-              echo "\`uci set nss-wifi.general.offload=0; uci commit nss-wifi; reboot\`."
+              echo "The offload comes up at boot; \`nss-status\` reports its health."
+              echo "To stay on the plain host stack instead:"
+              echo "\`uci set nss.general.enabled='0'; uci commit nss; reboot\`."
             } >release_notes.md
 
             # stdout is the tag; gh prints the release URL, which would
@@ -161,18 +156,20 @@ jobs:
         # One entry per devices/<name>/ directory. The memory-profile groups exist
         # because the ath11k memory profile is compile-time and image-wide, so
         # boards can only share a build when they share a profile.
-        device: [xiaomi_ax3600, ipq807x-1g, ipq807x-512m, ipq807x-256m, ipq60xx-1g, ipq60xx-512m]
+        # device: [xiaomi_ax3600, ipq807x-1g, ipq807x-512m, ipq807x-256m, ipq60xx-1g, ipq60xx-512m]
+        device: [xiaomi_ax3600]
         # The flavour is a .config fragment on top of the same overlays and the
         # same source trees; mesh needs the 11.4 firmware, which is image-wide
         # too, so it cannot share a build with the default flavour either.
-        flavour: [default, mesh]
-        include:
-          - flavour: mesh
-            config_fragment: devices/common/config.mesh
+        flavour: [default]
+#        include:
+#          - flavour: mesh
+#            config_fragment: devices/common/config.mesh
     env:
       GH_TOKEN: ${{ github.token }}
       DEVICE: ${{ matrix.device }}
-      CONFIG_FRAGMENT: ${{ matrix.config_fragment }}
+      # CONFIG_FRAGMENT: ${{ matrix.config_fragment }}
+      CONFIG_FRAGMENT: ""
       TAG: ${{ matrix.flavour == 'mesh' && needs.release.outputs.mesh_tag || needs.release.outputs.tag }}
     steps:
       - name: Install build dependencies
@@ -259,11 +256,18 @@ jobs:
       # ccache hashes neither the assembler nor cc1, so the key covers every
       # toolchain input and a change there starts from an empty cache. GitHub
       # drops entries unused for 7 days and evicts the oldest over the quota.
+      # The GCC version string carries the OpenWrt revision, which lands in
+      # the compiler binary and the kernel's autoconf.h and so misses every
+      # target object on each new commit; the toolchain tree hash replaces it.
       - name: Compute ccache key
         id: ccache
         run: |
           set -euo pipefail
           tree=$(git -C openwrt rev-parse HEAD:toolchain)
+          mk=openwrt/toolchain/gcc/common.mk
+          # shellcheck disable=SC2016 # make variables, not shell
+          grep -qx 'PKGVERSION=OpenWrt GCC $(PKG_VERSION) $(REVISION)' "$mk"
+          sed -i "s/^PKGVERSION=.*/PKGVERSION=OpenWrt GCC \$(PKG_VERSION) ${tree:0:12}/" "$mk"
           sum=$({
             echo "$tree"
             grep -E '^CONFIG_(BINUTILS|GCC|LIBC|MUSL|GLIBC)_' openwrt/.config
